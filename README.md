@@ -1,7 +1,7 @@
 # Image Colorization Using Deep Learning
 
 B.Tech Final Year Project — Department of Information Technology  
-Institute of Engineering & Technology, DDUGU Gorakhpur (Batch 2025)
+Institute of Engineering & Technology, DDUGU Gorakhpur (Batch 2026)
 
 ## Overview
 Automatic colorization of grayscale images using three deep learning models:
