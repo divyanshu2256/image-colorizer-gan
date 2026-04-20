@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Colorizer — Deep Learning Project</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #f5f6f8;
+  --surface:   #ffffff;
+  --surface2:  #f0f2f5;
+  --border:    #dde1e8;
+  --border2:   #c8cdd8;
+  --accent:    #2563eb;
+  --accent-lt: #dbeafe;
+  --green:     #16a34a;
+  --green-lt:  #dcfce7;
+  --gold:      #d97706;
+  --gold-lt:   #fef3c7;
+  --red:       #dc2626;
+  --red-lt:    #fee2e2;
+  --text:      #111827;
+  --text2:     #374151;
+  --dim:       #6b7280;
+  --dim2:      #9ca3af;
+  --shadow:    0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 15px; overflow-x: hidden; }
+
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Header ───────────────────────────────────────── */
+header {
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
+  padding: 0 2rem;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: var(--shadow);
+  min-height: 64px;
+}
+
+.brand { display: flex; align-items: center; gap: 1rem; }
+.brand-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #16a34a);
+  display: flex; align-items: center; justify-content: center;
+}
+.brand-icon svg { width: 20px; height: 20px; color: white; }
+.brand-text { display: flex; flex-direction: column; }
+.brand-name { font-size: 1.2rem; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+.brand-sub  { font-size: 0.72rem; color: var(--dim); font-weight: 400; }
+
+.header-right { display: flex; align-items: center; gap: 0.75rem; }
+
+.engine-tag {
+  font-size: 0.78rem; font-weight: 600; padding: 0.3rem 0.85rem;
+  border-radius: 6px; border: 1.5px solid var(--accent);
+  color: var(--accent); background: var(--accent-lt);
+}
+
+.model-switcher {
+  display: flex; border: 1.5px solid var(--border2); border-radius: 8px; overflow: hidden;
+}
+.mbtn {
+  font-family: 'Inter', sans-serif; font-size: 0.8rem; font-weight: 500;
+  padding: 0.35rem 0.95rem; cursor: pointer; border: none; background: transparent;
+  color: var(--dim); border-right: 1px solid var(--border2); transition: all 0.15s;
+}
+.mbtn:last-child { border-right: none; }
+.mbtn:hover { background: var(--surface2); color: var(--text); }
+.mbtn.active-gan    { background: var(--accent-lt); color: var(--accent); font-weight: 600; }
+.mbtn.active-resnet { background: var(--green-lt);  color: var(--green);  font-weight: 600; }
+.mbtn.active-opencv { background: var(--gold-lt);   color: var(--gold);   font-weight: 600; }
+
+.status-pill {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.78rem; font-weight: 500;
+  padding: 0.3rem 0.85rem; border-radius: 6px;
+  border: 1.5px solid var(--border2); color: var(--dim);
+  background: var(--surface2); transition: all 0.3s;
+}
+.status-pill.ready   { border-color: var(--green); color: var(--green); background: var(--green-lt); }
+.status-pill.loading { border-color: var(--gold);  color: var(--gold);  background: var(--gold-lt); }
+.status-pill.error   { border-color: var(--red);   color: var(--red);   background: var(--red-lt); }
+.sdot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.status-pill.ready .sdot   { animation: pulse 2s infinite; }
+.status-pill.loading .sdot { animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── Tabs ──────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 0;
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
+  padding: 0 2rem;
+}
+.tab {
+  font-family: 'Inter', sans-serif; font-size: 0.88rem; font-weight: 500;
+  padding: 0.9rem 1.4rem; cursor: pointer; border: none; background: transparent;
+  color: var(--dim); border-bottom: 3px solid transparent; margin-bottom: -2px;
+  transition: all 0.15s; white-space: nowrap;
+}
+.tab:hover { color: var(--text); background: var(--surface2); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* ── Main ──────────────────────────────────────────── */
+main { flex: 1; padding: 2rem; display: none; }
+main.active { display: block; }
+
+/* ── Single workspace ──────────────────────────────── */
+.workspace { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+
+/* Canvas card */
+.canvas-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
+}
+.card-bar {
+  padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--surface2);
+}
+.card-bar-label { font-size: 0.82rem; font-weight: 600; color: var(--text2); }
+.card-bar-info  { font-size: 0.78rem; color: var(--dim); }
+
+.drop-zone {
+  min-height: 340px; aspect-ratio: 4/3; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1rem;
+  cursor: pointer; transition: background 0.2s; position: relative;
+  border: 2.5px dashed transparent;
+}
+.drop-zone:hover, .drop-zone.drag {
+  background: #eff6ff; border-color: #93c5fd;
+}
+.drop-icon { width: 52px; opacity: 0.22; transition: all 0.25s; color: var(--accent); }
+.drop-zone:hover .drop-icon { opacity: 0.55; transform: translateY(-4px); }
+.drop-hint { font-size: 0.92rem; color: var(--dim); text-align: center; line-height: 2; }
+.drop-hint a { color: var(--accent); cursor: pointer; font-weight: 500; text-decoration: underline; }
+.drop-hint small { font-size: 0.75rem; color: var(--dim2); display: block; margin-top: 0.25rem; }
+#file-input { display: none; }
+
+/* Compare slider */
+.compare-wrap {
+  position: relative; overflow: hidden; display: none;
+  min-height: 340px; aspect-ratio: 4/3; background: #e5e7eb;
+}
+.compare-wrap.active { display: block; }
+.cimg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; display: block; user-select: none;
+}
+.cimg.colorized { clip-path: inset(0 50% 0 0); }
+.divider {
+  position: absolute; top: 0; bottom: 0; left: 50%; width: 3px;
+  background: white; transform: translateX(-50%);
+  cursor: ew-resize; z-index: 10; box-shadow: 0 0 8px rgba(0,0,0,0.3);
+}
+.divider-btn {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 40px; height: 40px; border-radius: 50%; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+}
+.divider-btn svg { width: 18px; height: 18px; }
+.ctag {
+  position: absolute; bottom: 0.85rem;
+  font-size: 0.75rem; font-weight: 600;
+  padding: 0.25rem 0.75rem; border-radius: 20px;
+  background: rgba(255,255,255,0.95); color: var(--text2);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.ctag.left  { left: 0.85rem; }
+.ctag.right { right: 0.85rem; color: var(--accent); }
+
+/* ── Controls column ────────────────────────────────── */
+.controls-col { display: flex; flex-direction: column; gap: 1rem; }
+
+.card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
+}
+.card-title {
+  padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border);
+  font-size: 0.85rem; font-weight: 600; color: var(--text2);
+  background: var(--surface2);
+}
+.card-body { padding: 1.1rem; display: flex; flex-direction: column; gap: 1rem; }
+
+/* Sliders */
+.srow { display: flex; flex-direction: column; gap: 0.4rem; }
+.smeta { display: flex; justify-content: space-between; font-size: 0.85rem; }
+.sname { color: var(--text2); font-weight: 500; }
+.sval  { color: var(--accent); font-weight: 600; min-width: 3rem; text-align: right; }
+.shint { font-size: 0.72rem; color: var(--dim2); }
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 5px;
+  background: var(--border); border-radius: 3px; cursor: pointer; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+  transition: box-shadow 0.2s; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 5px rgba(37,99,235,0.2); }
+
+/* Buttons */
+.btn {
+  font-family: 'Inter', sans-serif; font-size: 0.88rem; font-weight: 600;
+  padding: 0.7rem 1.1rem; border: 1.5px solid; border-radius: 8px;
+  cursor: pointer; background: transparent; width: 100%; transition: all 0.15s;
+}
+.btn-primary   { border-color: var(--accent); color: white; background: var(--accent); }
+.btn-primary:hover:not(:disabled) { background: #1d4ed8; border-color: #1d4ed8; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-success   { border-color: var(--green); color: white; background: var(--green); display: none; }
+.btn-success:hover { background: #15803d; box-shadow: 0 4px 12px rgba(22,163,74,0.3); }
+.btn-success.show { display: block; }
+.btn-neutral   { border-color: var(--border2); color: var(--text2); background: var(--surface2); }
+.btn-neutral:hover { border-color: var(--dim2); background: var(--border); }
+
+/* Progress */
+.prog-wrap { display: none; flex-direction: column; gap: 0.5rem; }
+.prog-wrap.show { display: flex; }
+.prog-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.prog-fill  { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); width: 0%; transition: width 0.3s; }
+.prog-label { font-size: 0.78rem; font-weight: 500; color: var(--accent); }
+
+/* Error */
+.err-box {
+  display: none; background: var(--red-lt); border: 1.5px solid #fca5a5;
+  border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.82rem; color: var(--red);
+  line-height: 1.6;
+}
+.err-box.show { display: block; }
+
+/* Stats */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.stat { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.85rem; }
+.stat-k { font-size: 0.72rem; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-v { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-top: 0.15rem; }
+
+/* ── Batch ──────────────────────────────────────────── */
+.batch-workspace { display: flex; flex-direction: column; gap: 1.5rem; }
+.batch-drop {
+  border: 2.5px dashed var(--border2); border-radius: 12px; padding: 2.5rem;
+  text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface);
+}
+.batch-drop:hover, .batch-drop.drag { border-color: var(--accent); background: #eff6ff; }
+.batch-drop p { font-size: 0.95rem; color: var(--dim); line-height: 2.2; }
+.batch-drop a { color: var(--accent); cursor: pointer; font-weight: 500; }
+.batch-controls { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+.batch-controls .btn { width: auto; padding: 0.68rem 1.5rem; }
+.batch-count { font-size: 0.85rem; color: var(--dim); font-weight: 500; }
+.batch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+.bcard {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 10px; overflow: hidden; box-shadow: var(--shadow);
+  transition: border-color 0.2s;
+}
+.bcard.done  { border-color: #86efac; }
+.bcard.error { border-color: #fca5a5; }
+.bcard-imgs { display: grid; grid-template-columns: 1fr 1fr; }
+.bcard-imgs img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.bcard-ph { aspect-ratio: 1; background: var(--surface2); display: flex; align-items: center; justify-content: center; }
+.bcard-ph svg { width: 28px; opacity: 0.2; }
+.bcard-foot {
+  padding: 0.55rem 0.85rem; border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+  background: var(--surface2);
+}
+.bcard-name   { font-size: 0.75rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.bcard-status { font-size: 0.72rem; font-weight: 600; flex-shrink: 0; }
+.bcard-status.pending { color: var(--dim2); }
+.bcard-status.working { color: var(--gold); }
+.bcard-status.done    { color: var(--green); }
+.bcard-status.error   { color: var(--red); }
+.bdl-btn {
+  font-size: 0.78rem; font-weight: 600; padding: 0.18rem 0.5rem;
+  border: 1.5px solid var(--green); color: var(--green);
+  border-radius: 5px; cursor: pointer; background: transparent;
+  transition: all 0.15s; display: none;
+}
+.bdl-btn:hover { background: var(--green); color: white; }
+.bdl-btn.show { display: block; }
+
+/* ── Graph tab ─────────────────────────────────────── */
+.graph-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
+}
+.graph-card-bar {
+  padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--surface2);
+}
+.graph-card-label { font-size: 0.85rem; font-weight: 600; color: var(--text2); }
+.graph-card-meta  { font-size: 0.78rem; color: var(--dim); }
+.graph-img-wrap img { width: 100%; display: block; }
+
+/* ── Metrics tab ────────────────────────────────────── */
+.metrics-workspace { display: flex; flex-direction: column; gap: 1.5rem; }
+.metrics-bottom { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+
+.mcard {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
+}
+.mcard-title {
+  padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--border);
+  font-size: 0.88rem; font-weight: 700; color: var(--text2);
+  background: var(--surface2);
+}
+.mcard-body { padding: 1.4rem; }
+
+.big-metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; }
+.big-metric {
+  text-align: center; padding: 1.2rem 0.75rem;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 10px;
+}
+.big-val   { font-size: 2.2rem; font-weight: 700; line-height: 1.1; }
+.big-label { font-size: 0.75rem; font-weight: 600; color: var(--dim); margin-top: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.big-hint  { font-size: 0.72rem; color: var(--dim2); margin-top: 0.25rem; }
+
+.phase-list { display: flex; flex-direction: column; gap: 0.85rem; }
+.phase {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 1rem 1.1rem; background: var(--surface2);
+  border: 1.5px solid var(--border); border-radius: 10px;
+}
+.phase-num { font-size: 1.8rem; font-weight: 700; color: var(--dim2); min-width: 2.5rem; line-height: 1; }
+.phase-info { flex: 1; }
+.phase-name   { font-size: 0.92rem; font-weight: 600; color: var(--text); }
+.phase-detail { font-size: 0.78rem; color: var(--dim); margin-top: 0.25rem; }
+.phase-result { font-size: 0.78rem; color: var(--accent); margin-top: 0.2rem; font-weight: 500; }
+.phase-badge {
+  font-size: 0.72rem; font-weight: 600; padding: 0.28rem 0.75rem;
+  border-radius: 20px; white-space: nowrap;
+}
+.phase-badge.done    { border: 1.5px solid var(--green); color: var(--green); background: var(--green-lt); }
+.phase-badge.active  { border: 1.5px solid var(--gold);  color: var(--gold);  background: var(--gold-lt); }
+.phase-badge.pending { border: 1.5px solid var(--border2); color: var(--dim); background: var(--surface2); }
+
+.arch-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.arch-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.6rem 0.9rem; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 7px;
+}
+.arch-k { font-size: 0.82rem; color: var(--dim); font-weight: 500; }
+.arch-v { font-size: 0.82rem; color: var(--accent); font-weight: 600; }
+
+/* ── Recent Results tab ─────────────────────────────── */
+.recent-workspace {
+  display: flex; flex-direction: column; gap: 1.5rem;
+}
+
+.recent-header {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 0.75rem;
+}
+.recent-title {
+  font-size: 1rem; font-weight: 700; color: var(--text2);
+}
+.recent-subtitle {
+  font-size: 0.82rem; color: var(--dim); margin-top: 0.2rem;
+}
+
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+/* Empty state shown before any images are colorized */
+.recent-empty {
+  grid-column: 1 / -1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1rem; padding: 4rem 2rem; text-align: center;
+  background: var(--surface); border: 2px dashed var(--border);
+  border-radius: 12px; color: var(--dim);
+}
+.recent-empty-icon { opacity: 0.18; }
+.recent-empty p { font-size: 0.95rem; line-height: 1.8; }
+.recent-empty code {
+  font-size: 0.85rem; background: var(--accent-lt); color: var(--accent);
+  padding: 0.3rem 0.85rem; border-radius: 6px; font-family: 'JetBrains Mono', monospace;
+}
+
+/* Individual result card */
+.rcard {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
+  transition: box-shadow 0.2s, transform 0.15s;
+  display: flex; flex-direction: column;
+}
+.rcard:hover {
+  box-shadow: var(--shadow-md); transform: translateY(-2px);
+}
+
+/* Side-by-side image pair */
+.rcard-imgs {
+  display: grid; grid-template-columns: 1fr 1fr;
+  position: relative;
+}
+.rcard-imgs img {
+  width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block;
+}
+.rcard-imgs::after {
+  /* vertical divider line between original and colorized */
+  content: ''; position: absolute; top: 0; bottom: 0; left: 50%;
+  width: 2px; background: rgba(255,255,255,0.8);
+  box-shadow: 0 0 6px rgba(0,0,0,0.25);
+}
+
+/* Labels on top of images */
+.rcard-img-label {
+  position: absolute; bottom: 0.45rem;
+  font-size: 0.68rem; font-weight: 600;
+  padding: 0.2rem 0.55rem; border-radius: 12px;
+  background: rgba(0,0,0,0.55); color: #fff;
+  pointer-events: none;
+}
+.rcard-img-label.left  { left: 0.5rem; }
+.rcard-img-label.right { right: 0.5rem; }
+
+/* Card footer with metadata */
+.rcard-body {
+  padding: 0.85rem 1rem; display: flex; flex-direction: column;
+  gap: 0.55rem; flex: 1;
+}
+.rcard-top {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem;
+}
+.rcard-filename {
+  font-size: 0.82rem; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1;
+}
+.rcard-time {
+  font-size: 0.72rem; color: var(--dim2); flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Model badge */
+.rcard-model {
+  display: inline-block; font-size: 0.72rem; font-weight: 600;
+  padding: 0.2rem 0.65rem; border-radius: 20px; border: 1.5px solid;
+}
+
+/* Metrics row */
+.rcard-metrics {
+  display: flex; gap: 0.75rem; flex-wrap: wrap;
+}
+.rcard-metric {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.3rem 0.65rem;
+  font-size: 0.75rem; color: var(--text2);
+}
+.rcard-metric span {
+  font-weight: 600; color: var(--green);
+}
+
+/* Download button */
+.rcard-actions {
+  display: flex; gap: 0.5rem; margin-top: auto;
+}
+.rcard-dl {
+  font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 600;
+  padding: 0.42rem 1rem; border: 1.5px solid var(--green);
+  color: var(--green); border-radius: 7px; cursor: pointer;
+  background: transparent; transition: all 0.15s; flex: 1;
+  text-align: center;
+}
+.rcard-dl:hover { background: var(--green); color: white; }
+
+/* ── Footer ──────────────────────────────────────────── */
+footer {
+  background: var(--surface); border-top: 1.5px solid var(--border);
+  padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center;
+}
+.footer-txt { font-size: 0.80rem; color: var(--dim); }
+
+@media (max-width: 820px) {
+  .workspace { grid-template-columns: 1fr; }
+  .big-metrics { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── Header ── -->
+<header>
+  <div class="brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 2a10 10 0 0 1 10 10"/>
+        <path d="M6 12a6 6 0 0 1 6-6"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <div class="brand-name">Image Colorizer</div>
+      <div class="brand-sub">Final Year B.Tech IT Project</div>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <div class="engine-tag" id="engine-tag">Pix2Pix GAN</div>
+
+    <div class="model-switcher">
+      <button id="mbtn-gan"    class="mbtn active-gan" onclick="switchModel('gan')">GAN</button>
+      <button id="mbtn-resnet" class="mbtn"             onclick="switchModel('resnet')">ResNet</button>
+      <button id="mbtn-opencv" class="mbtn"             onclick="switchModel('opencv')">OpenCV</button>
+    </div>
+
+    <div class="status-pill loading" id="status-pill">
+      <span class="sdot"></span>
+      <span id="status-text">Loading model...</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── Tabs ── -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('single',this)">Single Image</button>
+  <button class="tab"        onclick="switchTab('batch',this)">Batch Process</button>
+  <button class="tab"        onclick="switchTab('recent',this)" id="tab-btn-recent">Recent Results</button>
+  <button class="tab"        onclick="switchTab('gallery',this)">Progress Graph</button>
+  <button class="tab"        onclick="switchTab('evalreport',this)">Eval Report</button>
+  <button class="tab"        onclick="switchTab('metrics',this)">Training Metrics</button>
+</div>
+
+<!-- ── Single Image Tab ── -->
+<main id="tab-single" class="active">
+  <div class="workspace">
+
+    <!-- Canvas -->
+    <div class="canvas-card">
+      <div class="card-bar">
+        <span class="card-bar-label">Canvas</span>
+        <span class="card-bar-info" id="img-info">No image loaded</span>
+      </div>
+
+      <div class="drop-zone" id="drop-zone">
+        <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="m21 15-5-5L5 21"/>
+        </svg>
+        <div class="drop-hint">
+          Drop a black &amp; white photo here<br>
+          or <a onclick="if(!fileDialogOpen){fileDialogOpen=true;document.getElementById('file-input').click();setTimeout(()=>{fileDialogOpen=false;},1000);}">browse files</a>
+          <small>PNG · JPG · WEBP</small>
+        </div>
+      </div>
+      <input type="file" id="file-input" accept="image/*">
+
+      <div class="compare-wrap" id="compare-wrap">
+        <img class="cimg original"  id="orig-img" alt="Original">
+        <img class="cimg colorized" id="color-img" alt="Colorized">
+        <div class="divider" id="divider">
+          <div class="divider-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2.5">
+              <path d="M8 9l-4 3 4 3M16 9l4 3-4 3"/>
+            </svg>
+          </div>
+        </div>
+        <span class="ctag left">Original</span>
+        <span class="ctag right">Colorized</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-col">
+
+      <div class="card">
+        <div class="card-title">Color Settings</div>
+        <div class="card-body">
+          <div class="srow">
+            <div class="smeta"><span class="sname">Color Boost</span><span class="sval" id="cb-val">1.4×</span></div>
+            <input type="range" id="color-boost" min="0.8" max="2.2" step="0.1" value="1.4">
+            <div class="shint">Controls ab-channel saturation intensity</div>
+          </div>
+          <div class="srow">
+            <div class="smeta"><span class="sname">Saturation</span><span class="sval" id="sat-val">1.0×</span></div>
+            <input type="range" id="saturation" min="0.5" max="2.5" step="0.1" value="1.0">
+          </div>
+          <div class="srow">
+            <div class="smeta"><span class="sname">Contrast</span><span class="sval" id="con-val">1.0×</span></div>
+            <input type="range" id="contrast" min="0.5" max="2.0" step="0.1" value="1.0">
+          </div>
+          <div class="srow">
+            <div class="smeta"><span class="sname">Sharpness</span><span class="sval" id="shp-val">1.0×</span></div>
+            <input type="range" id="sharpness" min="0.0" max="3.0" step="0.1" value="1.0">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Actions</div>
+        <div class="card-body">
+          <div class="err-box" id="err-box"></div>
+          <div class="prog-wrap" id="prog-wrap">
+            <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+            <div class="prog-label" id="prog-label">Processing...</div>
+          </div>
+          <button class="btn btn-primary" id="colorize-btn" disabled onclick="runColorize()">Colorize Image</button>
+          <button class="btn btn-success" id="dl-btn" onclick="downloadResult()">Download Result</button>
+          <button class="btn btn-neutral" onclick="resetSingle()">Reset</button>
+        </div>
+      </div>
+
+      <div class="card" id="stats-card" style="display:none">
+        <div class="card-title">Result Metrics</div>
+        <div class="card-body">
+          <div class="stats-grid">
+            <div class="stat"><div class="stat-k">Model</div><div class="stat-v" id="s-model" style="color:var(--accent)">GAN</div></div>
+            <div class="stat"><div class="stat-k">Time</div><div class="stat-v" id="s-time">—</div></div>
+            <div class="stat"><div class="stat-k">PSNR (dB)</div><div class="stat-v" id="s-psnr" style="color:var(--green)">—</div></div>
+            <div class="stat"><div class="stat-k">SSIM</div><div class="stat-v" id="s-ssim" style="color:var(--green)">—</div></div>
+            <div class="stat" style="grid-column:span 2"><div class="stat-k">Resolution</div><div class="stat-v" id="s-res">—</div></div>
+          </div>
+          <div style="font-size:0.75rem;color:var(--dim);margin-top:0.75rem;line-height:1.7;background:var(--surface2);padding:0.6rem 0.8rem;border-radius:7px;border:1px solid var(--border);">
+            ℹ️ &nbsp;PSNR &gt; 22 dB = Good quality &nbsp;|&nbsp; SSIM &gt; 0.85 = High structural similarity
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ── Batch Tab ── -->
+<main id="tab-batch">
+  <div class="batch-workspace">
+    <div class="batch-drop" id="batch-drop">
+      <p>
+        Drop multiple B&amp;W images here<br>
+        or <a onclick="document.getElementById('batch-input').click()">select files</a><br>
+        <small style="font-size:0.78rem;color:var(--dim2)">PNG · JPG · WEBP &nbsp;·&nbsp; Up to 20 images</small>
+      </p>
+    </div>
+    <input type="file" id="batch-input" accept="image/*" multiple style="display:none">
+    <div class="batch-controls">
+      <button class="btn btn-primary" id="batch-run-btn" disabled onclick="runBatch()">Colorize All</button>
+      <button class="btn btn-neutral" onclick="clearBatch()">Clear</button>
+      <span class="batch-count" id="batch-count"></span>
+    </div>
+    <div class="batch-grid" id="batch-grid"></div>
+  </div>
+</main>
+
+<!-- ── Recent Results Tab ── -->
+<main id="tab-recent">
+  <div class="recent-workspace">
+
+    <div class="recent-header">
+      <div>
+        <div class="recent-title">Recent Results</div>
+        <div class="recent-subtitle" id="recent-subtitle">
+          Last colorizations from this session — refreshes automatically
+        </div>
+      </div>
+      <button class="btn btn-neutral" style="width:auto;padding:0.55rem 1.25rem;"
+              onclick="loadRecent()">↻ Refresh</button>
+    </div>
+
+    <!-- Grid — filled by loadRecent() -->
+    <div class="recent-grid" id="recent-grid">
+
+      <!-- Empty state shown on first load -->
+      <div class="recent-empty" id="recent-empty">
+        <svg class="recent-empty-icon" width="64" height="64" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="m21 15-5-5L5 21"/>
+        </svg>
+        <p>
+          No colorizations yet this session.<br>
+          Upload an image on the <strong>Single Image</strong> tab and click
+          <strong>Colorize Image</strong>.
+        </p>
+        <p style="margin-top:0.5rem; font-size:0.78rem; color:var(--dim2);">
+          Results are kept in memory and cleared when the server restarts.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ── Progress Graph Tab ── -->
+<main id="tab-gallery" style="padding:0;">
+  <img src="/static/gallery/training_progress.png" alt="Training Progress"
+       style="width:100%; display:block;"
+       onerror="this.style.display='none'; document.getElementById('graph-msg').style.display='flex';">
+  <div id="graph-msg" style="display:none; align-items:center; justify-content:center;
+       height:60vh; flex-direction:column; gap:1rem; text-align:center;">
+    <div style="font-size:1rem; color:var(--dim); font-weight:500;">No training graph found.</div>
+    <code style="color:var(--accent); font-size:0.88rem; background:var(--accent-lt); padding:0.4rem 1rem; border-radius:6px;">python plot_training.py</code>
+  </div>
+</main>
+
+<!-- ── Eval Report Tab ── -->
+<main id="tab-evalreport" style="padding:0; position:fixed; top:0; left:0; right:0; bottom:0;">
+  <iframe id="eval-iframe" src="about:blank"
+          style="width:100%; height:100%; border:none; display:block;">
+  </iframe>
+</main>
+
+<!-- ── Training Metrics Tab ── -->
+<main id="tab-metrics">
+  <div class="metrics-workspace">
+
+    <div class="mcard">
+      <div class="mcard-title">Overall Evaluation — 50 Validation Images</div>
+      <div class="mcard-body">
+        <div class="big-metrics">
+          <div class="big-metric">
+            <div class="big-val" style="color:var(--green)">22.41</div>
+            <div class="big-label">GAN PSNR (dB)</div>
+            <div class="big-hint">epoch 200 · complete ✓</div>
+          </div>
+          <div class="big-metric">
+            <div class="big-val" style="color:var(--green)">22.42</div>
+            <div class="big-label">ResNet PSNR (dB)</div>
+            <div class="big-hint">epoch 100 · complete ✓</div>
+          </div>
+          <div class="big-metric">
+            <div class="big-val" style="color:var(--green)">200</div>
+            <div class="big-label">GAN Epochs</div>
+            <div class="big-hint">two-phase · complete ✓</div>
+          </div>
+          <div class="big-metric">
+            <div class="big-val" style="color:var(--green)">100</div>
+            <div class="big-label">ResNet Epochs</div>
+            <div class="big-hint">pretrained · complete ✓</div>
+          </div>
+          <div class="big-metric">
+            <div class="big-val" style="color:var(--gold)">118k</div>
+            <div class="big-label">Training Images</div>
+            <div class="big-hint">COCO 2017 Dataset</div>
+          </div>
+        </div>
+
+        <!-- Winner summary -->
+        <div style="margin-top:1.2rem; display:flex; gap:1rem; flex-wrap:wrap;">
+          <div style="flex:1; min-width:160px; padding:0.85rem 1rem; background:var(--green-lt);
+               border:1.5px solid #86efac; border-radius:10px; text-align:center;">
+            <div style="font-size:0.75rem; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em;">🏆 Better PSNR</div>
+            <div style="font-size:1rem; font-weight:700; color:var(--green); margin-top:0.3rem;">ResNet · 23.18 dB</div>
+          </div>
+          <div style="flex:1; min-width:160px; padding:0.85rem 1rem; background:var(--accent-lt);
+               border:1.5px solid #93c5fd; border-radius:10px; text-align:center;">
+            <div style="font-size:0.75rem; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em;">🏆 Better SSIM</div>
+            <div style="font-size:1rem; font-weight:700; color:var(--accent); margin-top:0.3rem;">GAN · 0.8968</div>
+          </div>
+          <div style="flex:1; min-width:160px; padding:0.85rem 1rem; background:var(--gold-lt);
+               border:1.5px solid #fcd34d; border-radius:10px; text-align:center;">
+            <div style="font-size:0.75rem; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em;">⚡ Efficiency</div>
+            <div style="font-size:1rem; font-weight:700; color:var(--gold); margin-top:0.3rem;">ResNet 30 vs 130 ep.</div>
+          </div>
+          <div style="flex:1; min-width:160px; padding:0.85rem 1rem; background:var(--surface2);
+               border:1.5px solid var(--border); border-radius:10px; text-align:center;">
+            <div style="font-size:0.75rem; font-weight:600; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em;">📊 Evaluated On</div>
+            <div style="font-size:1rem; font-weight:700; color:var(--text); margin-top:0.3rem;">50 Val Images</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="metrics-bottom">
+      <div class="mcard" style="flex:1">
+        <div class="mcard-title">Training Strategy</div>
+        <div class="mcard-body">
+          <div class="phase-list">
+            <div class="phase">
+              <div class="phase-num">01</div>
+              <div class="phase-info">
+                <div class="phase-name">GAN — Baseline Training</div>
+                <div class="phase-detail">100 epochs · 5,000 images · COCO val2017</div>
+                <div class="phase-result">Result: PSNR 25.85 dB · SSIM 0.9042</div>
+              </div>
+              <div class="phase-badge done">Done</div>
+            </div>
+            <div class="phase">
+              <div class="phase-num">02</div>
+              <div class="phase-info">
+                <div class="phase-name">GAN — Fine-Tuning (Phase 2)</div>
+                <div class="phase-detail">30 epochs · 118,287 images · Full COCO train2017</div>
+                <div class="phase-result">Epoch 100: PSNR 22.42 dB · SSIM 0.8995 · ResNet leading both ✓</div>
+              </div>
+              <div class="phase-badge done">Done · ep.130</div>
+            </div>
+            <div class="phase">
+              <div class="phase-num">03</div>
+              <div class="phase-info">
+                <div class="phase-name">ResNet GAN — Transfer Learning</div>
+                <div class="phase-detail">100 / 100 epochs · ResNet34 pretrained encoder</div>
+                <div class="phase-result">Epoch 100: PSNR 22.42 dB · SSIM 0.8995 · ResNet leading both ✓</div>
+              </div>
+              <div class="phase-badge done">Done · ep.30</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mcard" style="flex:1">
+        <div class="mcard-title">Model Architecture</div>
+        <div class="mcard-body">
+          <div class="arch-list">
+            <div class="arch-row"><span class="arch-k">GAN Generator</span><span class="arch-v">U-Net (29.2M params)</span></div>
+            <div class="arch-row"><span class="arch-k">ResNet Generator</span><span class="arch-v">ResNet34 encoder (~45M)</span></div>
+            <div class="arch-row"><span class="arch-k">OpenCV CNN</span><span class="arch-v">Zhang et al. 2016 (pretrained)</span></div>
+            <div class="arch-row"><span class="arch-k">Discriminator</span><span class="arch-v">PatchGAN (2.8M params)</span></div>
+            <div class="arch-row"><span class="arch-k">Color Space</span><span class="arch-v">CIE-LAB</span></div>
+            <div class="arch-row"><span class="arch-k">Input / Output</span><span class="arch-v">256×256 L → AB channels</span></div>
+            <div class="arch-row"><span class="arch-k">GAN Loss</span><span class="arch-v">BCE + L1 (λ=100)</span></div>
+            <div class="arch-row"><span class="arch-k">Optimizer</span><span class="arch-v">Adam (β=0.5, lr=2e-4)</span></div>
+            <div class="arch-row"><span class="arch-k">Dataset</span><span class="arch-v">COCO 2017 (118,287 imgs)</span></div>
+            <div class="arch-row"><span class="arch-k">GPU</span><span class="arch-v">NVIDIA T4 (Kaggle)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <span class="footer-txt">© 2026 Image Colorization — B.Tech Final Year Project</span>
+  <span class="footer-txt">Pix2Pix GAN · ResNet GAN · OpenCV CNN · Flask · Vanilla JS</span>
+</footer>
+</div>
+
+<script>
+// Auto-detect API base URL so the app works whether you open it via:
+//   http://localhost:5000  (Flask serves index.html — correct way)
+//   file:///D:/...         (double-clicked — will fall back to localhost:5000)
+const API = (location.protocol === 'file:')
+  ? 'http://localhost:5000'                // opened as file — point to local server
+  : (location.origin || 'http://localhost:5000');  // opened via Flask — same origin
+
+let currentFile  = null;
+let colorizedUrl = null;
+let modelReady   = false;
+let batchFiles   = [];
+let batchResults = {};
+
+// DOM refs
+const dropZone   = document.getElementById('drop-zone');
+const compareWrap= document.getElementById('compare-wrap');
+const origImg    = document.getElementById('orig-img');
+const colorImg   = document.getElementById('color-img');
+const divider    = document.getElementById('divider');
+const colorizeBtn= document.getElementById('colorize-btn');
+const dlBtn      = document.getElementById('dl-btn');
+const statsCard  = document.getElementById('stats-card');
+const errBox     = document.getElementById('err-box');
+const progWrap   = document.getElementById('prog-wrap');
+const progFill   = document.getElementById('prog-fill');
+const statusPill = document.getElementById('status-pill');
+const statusText = document.getElementById('status-text');
+const imgInfo    = document.getElementById('img-info');
+
+// ── Drop zone ──────────────────────────────────────────────────────────────
+// Fix: track whether file dialog is already open to prevent double-open bug
+let fileDialogOpen = false;
+dropZone.addEventListener('click', () => {
+  if (fileDialogOpen) return;          // dialog already open — ignore click
+  fileDialogOpen = true;
+  document.getElementById('file-input').click();
+  // Reset flag after short delay (handles cancel without selection)
+  setTimeout(() => { fileDialogOpen = false; }, 1000);
+});
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop',      e => { e.preventDefault(); dropZone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+document.getElementById('file-input').addEventListener('change', e => {
+  fileDialogOpen = false;              // dialog closed — reset flag
+  handleFile(e.target.files[0]);
+  e.target.value = '';                 // reset input so same file can be re-selected
+});
+
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  currentFile  = file;
+  colorizedUrl = null;
+  const url    = URL.createObjectURL(file);
+  origImg.src  = url;
+  colorImg.src = url;
+  dropZone.style.display  = 'none';
+  compareWrap.classList.add('active');
+  dlBtn.classList.remove('show');
+  statsCard.style.display = 'none';
+  imgInfo.textContent = `${file.name}  (${(file.size/1024).toFixed(0)} KB)`;
+  colorizeBtn.disabled = !modelReady;
+  hideErr();
+}
+
+// ── Compare slider ─────────────────────────────────────────────────────────
+let dragging = false;
+divider.addEventListener('mousedown', () => dragging = true);
+document.addEventListener('mouseup',  () => dragging = false);
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const rect = compareWrap.getBoundingClientRect();
+  const pct  = Math.min(100, Math.max(0, (e.clientX - rect.left) / rect.width * 100));
+  divider.style.left = pct + '%';
+  colorImg.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+});
+
+// ── Sliders ────────────────────────────────────────────────────────────────
+[['color-boost','cb-val','×'],['saturation','sat-val','×'],['contrast','con-val','×'],['sharpness','shp-val','×']].forEach(([id, vid, suf]) => {
+  const el = document.getElementById(id);
+  const vl = document.getElementById(vid);
+  vl.textContent = parseFloat(el.value).toFixed(1) + suf;
+  el.addEventListener('input', () => { vl.textContent = parseFloat(el.value).toFixed(1) + suf; });
+});
+
+// ── Health polling ─────────────────────────────────────────────────────────
+async function poll() {
+  try {
+    const _hc = new AbortController();
+    setTimeout(() => _hc.abort(), 3000);
+    const d = await fetch(`${API}/health`, { signal: _hc.signal }).then(r => r.json());
+    modelReady = d.model_ready;
+    if (d.model_ready) {
+      statusPill.className = 'status-pill ready';
+      statusText.textContent = 'Model ready';
+      colorizeBtn.disabled = !currentFile;
+      document.getElementById('batch-run-btn').disabled = !batchFiles.length;
+    } else if (d.model_error) {
+      statusPill.className = 'status-pill error';
+      statusText.textContent = 'Model error';
+    } else {
+      statusPill.className = 'status-pill loading';
+      statusText.textContent = 'Loading model...';
+    }
+    if (d.active_model) applyModelUI(d.active_model);
+    const btnR = document.getElementById('mbtn-resnet');
+    const btnO = document.getElementById('mbtn-opencv');
+    if (btnR) { btnR.disabled = !d.resnet_available; btnR.style.opacity = d.resnet_available ? '1' : '0.4'; }
+    if (btnO) { btnO.disabled = !d.opencv_available; btnO.style.opacity = d.opencv_available ? '1' : '0.4'; }
+  } catch {
+    statusPill.className = 'status-pill error';
+    // Show helpful message instead of just "Offline"
+    // The most common cause on Windows: opening index.html as a file
+    // instead of visiting http://localhost:5000 in the browser
+    const openedAsFile = location.protocol === 'file:';
+    statusText.textContent = openedAsFile
+      ? 'Open via http://localhost:5000'
+      : 'Backend offline — run python backend.py';
+    modelReady = false;
+    colorizeBtn.disabled = true;
+  }
+}
+poll();
+setInterval(poll, 10000);
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+let evalLoaded = false;
+function switchTab(name, btn) {
+  // Hide all tabs
+  document.querySelectorAll('main').forEach(m => {
+    m.classList.remove('active');
+    m.style.display = 'none';
+  });
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+
+  const t = document.getElementById('tab-' + name);
+  if (t) {
+    t.classList.add('active');
+    if (name === 'evalreport') {
+      // Position iframe below header + tabs
+      const header = document.querySelector('header');
+      const tabs   = document.querySelector('.tabs');
+      const offset = (header ? header.offsetHeight : 0) + (tabs ? tabs.offsetHeight : 0);
+      t.style.top     = offset + 'px';
+      t.style.display = 'block';
+      // Lazy-load iframe only once
+      const iframe = document.getElementById('eval-iframe');
+      if (!evalLoaded) {
+        iframe.src = '/eval_report/eval_report.html';
+        evalLoaded = true;
+      }
+    } else {
+      t.style.display = 'block';
+    }
+  }
+  if (btn) btn.classList.add('active');
+}
+
+// ── Colorize ───────────────────────────────────────────────────────────────
+async function runColorize() {
+  if (!currentFile || !modelReady) return;
+  colorizeBtn.disabled = true;
+  hideErr(); showProg();
+
+  const ticker = setInterval(() => {
+    const w = parseFloat(progFill.style.width) || 0;
+    if (w < 85) progFill.style.width = (w + (85 - w) * 0.12) + '%';
+  }, 200);
+
+  try {
+    const b64 = await toB64(currentFile);
+    const cb  = parseFloat(document.getElementById('color-boost').value);
+    const sat = parseFloat(document.getElementById('saturation').value);
+    const con = parseFloat(document.getElementById('contrast').value);
+    const shp = parseFloat(document.getElementById('sharpness').value);
+
+    const res  = await fetch(`${API}/colorize`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        image: b64, color_boost: cb, saturation: sat, contrast: con, sharpness: shp,
+        filename: currentFile ? currentFile.name : 'image.jpg'  // sent so backend can store it
+      })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Colorization failed');
+
+    clearInterval(ticker);
+    progFill.style.width = '100%';
+    await new Promise(r => setTimeout(r, 300));
+
+    colorizedUrl = data.colorized;
+    colorImg.src = data.colorized;
+    dlBtn.classList.add('show');
+
+    // Stats
+    statsCard.style.display = 'block';
+    document.getElementById('s-model').textContent = data.active_model || '—';
+    document.getElementById('s-time').textContent  = data.time + 's';
+    document.getElementById('s-psnr').textContent  = data.psnr ? data.psnr + ' dB' : '—';
+    document.getElementById('s-ssim').textContent  = data.ssim || '—';
+    document.getElementById('s-res').textContent   = currentFile ? `${origImg.naturalWidth}×${origImg.naturalHeight}` : '—';
+
+    // Update Recent Results tab badge silently in background
+    loadRecent();
+
+  } catch(e) {
+    clearInterval(ticker);
+    showErr(e.message);
+  }
+  hideProg();
+  colorizeBtn.disabled = false;
+}
+
+function downloadResult() {
+  if (!colorizedUrl) return;
+  const a = document.createElement('a');
+  a.href = colorizedUrl; a.download = `colorized_${Date.now()}.jpg`; a.click();
+}
+
+function resetSingle() {
+  currentFile = null; colorizedUrl = null;
+  document.getElementById('file-input').value = '';
+  dropZone.style.display = 'flex';
+  compareWrap.classList.remove('active');
+  dlBtn.classList.remove('show');
+  statsCard.style.display = 'none';
+  imgInfo.textContent = 'No image loaded';
+  hideErr(); hideProg();
+  colorizeBtn.disabled = true;
+}
+
+// ── Batch ──────────────────────────────────────────────────────────────────
+function addBatchFiles(files) {
+  const valid = Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, 20 - batchFiles.length);
+  batchFiles  = [...batchFiles, ...valid].slice(0, 20);
+  renderBatch();
+  document.getElementById('batch-count').textContent = `${batchFiles.length} image${batchFiles.length !== 1 ? 's' : ''} queued`;
+  document.getElementById('batch-run-btn').disabled = !(batchFiles.length && modelReady);
+}
+
+function renderBatch() {
+  const grid = document.getElementById('batch-grid');
+  grid.innerHTML = '';
+  batchFiles.forEach((f, i) => {
+    const r    = batchResults[i];
+    const st   = r ? (r.success ? 'done' : 'error') : 'pending';
+    const card = document.createElement('div');
+    card.className = 'bcard' + (st === 'done' ? ' done' : st === 'error' ? ' error' : '');
+    card.id = `bc-${i}`;
+    const oSrc = URL.createObjectURL(f);
+    const cSrc = r?.success ? r.colorized : null;
+    card.innerHTML = `
+      <div class="bcard-imgs">
+        <img src="${oSrc}" alt="orig">
+        ${cSrc ? `<img src="${cSrc}" alt="colorized">` : `<div class="bcard-ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20"/></svg></div>`}
+      </div>
+      <div class="bcard-foot">
+        <span class="bcard-name">${f.name}</span>
+        <span class="bcard-status ${st}" id="bst-${i}">${st}</span>
+        <button class="bdl-btn ${cSrc ? 'show' : ''}" id="bdl-${i}" onclick="batchDl(${i})">↓</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+async function runBatch() {
+  if (!batchFiles.length || !modelReady) return;
+  const btn = document.getElementById('batch-run-btn');
+  btn.disabled = true; btn.textContent = 'Processing...';
+  batchResults = {};
+  const cb  = parseFloat(document.getElementById('color-boost').value);
+  const sat = parseFloat(document.getElementById('saturation').value);
+  const con = parseFloat(document.getElementById('contrast').value);
+  const shp = parseFloat(document.getElementById('sharpness').value);
+
+  for (let i = 0; i < batchFiles.length; i++) {
+    const stEl = document.getElementById(`bst-${i}`);
+    const card = document.getElementById(`bc-${i}`);
+    if (stEl) { stEl.textContent = 'working'; stEl.className = 'bcard-status working'; }
+    try {
+      const b64  = await toB64(batchFiles[i]);
+      const res  = await fetch(`${API}/colorize`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ image: b64, color_boost: cb, saturation: sat, contrast: con, sharpness: shp }) });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      batchResults[i] = { success: true, colorized: data.colorized };
+      if (stEl) { stEl.textContent = 'done'; stEl.className = 'bcard-status done'; }
+      if (card) card.classList.add('done');
+      const ph = card?.querySelector('.bcard-ph');
+      if (ph) { const img = document.createElement('img'); img.src = data.colorized; ph.replaceWith(img); }
+      const dl = document.getElementById(`bdl-${i}`); if (dl) dl.classList.add('show');
+    } catch(e) {
+      batchResults[i] = { success: false };
+      if (stEl) { stEl.textContent = 'error'; stEl.className = 'bcard-status error'; }
+      if (card) card.classList.add('error');
+    }
+  }
+  btn.disabled = false; btn.textContent = 'Colorize All';
+  const ok = Object.values(batchResults).filter(r => r.success).length;
+  document.getElementById('batch-count').textContent = `Done — ${ok} / ${batchFiles.length} succeeded`;
+}
+
+function batchDl(i) {
+  if (!batchResults[i]?.colorized) return;
+  const a = document.createElement('a');
+  a.href = batchResults[i].colorized; a.download = `colorized_${batchFiles[i].name}`; a.click();
+}
+
+function clearBatch() {
+  batchFiles = []; batchResults = {};
+  document.getElementById('batch-grid').innerHTML = '';
+  document.getElementById('batch-count').textContent = '';
+  document.getElementById('batch-run-btn').disabled = true;
+  document.getElementById('batch-input').value = '';
+}
+
+const batchDrop = document.getElementById('batch-drop');
+batchDrop.addEventListener('click',     () => document.getElementById('batch-input').click());
+batchDrop.addEventListener('dragover',  e => { e.preventDefault(); batchDrop.classList.add('drag'); });
+batchDrop.addEventListener('dragleave', () => batchDrop.classList.remove('drag'));
+batchDrop.addEventListener('drop',      e => { e.preventDefault(); batchDrop.classList.remove('drag'); addBatchFiles(e.dataTransfer.files); });
+document.getElementById('batch-input').addEventListener('change', e => addBatchFiles(e.target.files));
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function toB64(file) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsDataURL(file); });
+}
+function showErr(msg)  { errBox.textContent = msg; errBox.classList.add('show'); }
+function hideErr()     { errBox.classList.remove('show'); }
+function showProg()    { progWrap.classList.add('show'); progFill.style.width = '0%'; }
+function hideProg()    { progWrap.classList.remove('show'); }
+
+// ── Model Switcher ─────────────────────────────────────────────────────────
+async function switchModel(model) {
+  const btnG = document.getElementById('mbtn-gan');
+  const btnR = document.getElementById('mbtn-resnet');
+  const btnO = document.getElementById('mbtn-opencv');
+  const pill = document.getElementById('status-pill');
+  const txt  = document.getElementById('status-text');
+
+  // Disable all buttons while switching to prevent double-clicks
+  [btnG, btnR, btnO].forEach(b => { if (b) b.disabled = true; });
+
+  // Show switching indicator in the status pill
+  const prevPillClass = pill ? pill.className : '';
+  const prevTxt       = txt  ? txt.textContent : '';
+  if (pill) pill.className = 'status-pill loading';
+  if (txt)  txt.textContent = `Switching to ${model.toUpperCase()}...`;
+
+  try {
+    const res  = await fetch(`${API}/switch-model`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ model }),
+      signal:  (() => { const c = new AbortController(); setTimeout(() => c.abort(), 8000); return c.signal; })()
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      // Success — update the whole UI to reflect the new active model
+      applyModelUI(model);
+      if (pill) pill.className = 'status-pill ready';
+      if (txt)  txt.textContent = `${model.toUpperCase()} active`;
+      // Restore normal "Model ready" status after 2 seconds
+      setTimeout(() => {
+        if (pill) pill.className = 'status-pill ready';
+        if (txt)  txt.textContent = 'Model ready';
+      }, 2000);
+
+    } else {
+      // Backend responded but reported an error (e.g. model not loaded)
+      // Show the real error message inline — not alert()
+      if (pill) pill.className = 'status-pill error';
+      if (txt)  txt.textContent = data.error || 'Switch failed';
+      // Restore previous status after 3 seconds
+      setTimeout(() => {
+        if (pill) pill.className = prevPillClass;
+        if (txt)  txt.textContent = prevTxt;
+      }, 3000);
+    }
+
+  } catch (e) {
+    // Network error or timeout — show inline, not alert()
+    if (pill) pill.className = 'status-pill error';
+    if (txt)  txt.textContent = 'Cannot reach backend';
+    setTimeout(() => {
+      if (pill) pill.className = prevPillClass;
+      if (txt)  txt.textContent = prevTxt;
+    }, 3000);
+  }
+
+  // Re-enable buttons regardless of outcome
+  [btnG, btnR, btnO].forEach(b => { if (b) b.disabled = false; });
+}
+
+function applyModelUI(model) {
+  const btnG   = document.getElementById('mbtn-gan');
+  const btnR   = document.getElementById('mbtn-resnet');
+  const btnO   = document.getElementById('mbtn-opencv');
+  const tag    = document.getElementById('engine-tag');
+  const sModel = document.getElementById('s-model');
+
+  [btnG, btnR, btnO].forEach(b => { if(b) b.className = 'mbtn'; });
+
+  if (model === 'resnet') {
+    if (btnR) btnR.className = 'mbtn active-resnet';
+    if (tag)  { tag.textContent = 'ResNet GAN'; tag.style.color = 'var(--green)'; tag.style.borderColor = 'var(--green)'; tag.style.background = 'var(--green-lt)'; }
+    if (sModel) { sModel.textContent = 'ResNet'; sModel.style.color = 'var(--green)'; }
+  } else if (model === 'opencv') {
+    if (btnO) btnO.className = 'mbtn active-opencv';
+    if (tag)  { tag.textContent = 'OpenCV CNN'; tag.style.color = 'var(--gold)'; tag.style.borderColor = 'var(--gold)'; tag.style.background = 'var(--gold-lt)'; }
+    if (sModel) { sModel.textContent = 'OpenCV'; sModel.style.color = 'var(--gold)'; }
+  } else {
+    if (btnG) btnG.className = 'mbtn active-gan';
+    if (tag)  { tag.textContent = 'Pix2Pix GAN'; tag.style.color = 'var(--accent)'; tag.style.borderColor = 'var(--accent)'; tag.style.background = 'var(--accent-lt)'; }
+    if (sModel) { sModel.textContent = 'GAN'; sModel.style.color = 'var(--accent)'; }
+  }
+}
+// ── Recent Results ────────────────────────────────────────────────────────────
+
+// MODEL colour scheme matching the rest of the UI
+const MODEL_COLORS = {
+  resnet: { text: 'var(--green)',  bg: 'var(--green-lt)',  border: '#86efac', label: 'ResNet' },
+  gan:    { text: 'var(--accent)', bg: 'var(--accent-lt)', border: '#93c5fd', label: 'GAN'    },
+  opencv: { text: 'var(--gold)',   bg: 'var(--gold-lt)',   border: '#fcd34d', label: 'OpenCV' },
+};
+
+/**
+ * Fetch /recent from backend and re-render the Recent Results grid.
+ * Called when the tab is opened AND after every successful colorization.
+ */
+async function loadRecent() {
+  try {
+    const ctrl = new AbortController();
+    const t    = setTimeout(() => ctrl.abort(), 5000);
+    const data = await fetch(`${API}/recent`, { signal: ctrl.signal })
+                   .then(r => { clearTimeout(t); return r.json(); });
+
+    renderRecentGrid(data.results || []);
+
+    // Update subtitle with result count
+    const sub = document.getElementById('recent-subtitle');
+    if (sub) {
+      sub.textContent = data.count
+        ? `${data.count} result${data.count !== 1 ? 's' : ''} this session — newest first`
+        : 'Last colorizations from this session — refreshes automatically';
+    }
+
+    // Update tab button badge if there are results
+    const tabBtn = document.getElementById('tab-btn-recent');
+    if (tabBtn && data.count > 0) {
+      tabBtn.textContent = `Recent Results (${data.count})`;
+    }
+
+  } catch {
+    // Backend offline or error — show empty state silently
+    renderRecentGrid([]);
+  }
+}
+
+/**
+ * Build and inject the result cards into the recent-grid container.
+ * @param {Array} results - Array of result objects from GET /recent
+ */
+function renderRecentGrid(results) {
+  const grid  = document.getElementById('recent-grid');
+  const empty = document.getElementById('recent-empty');
+  if (!grid) return;
+
+  if (!results.length) {
+    // Show empty state
+    if (empty) empty.style.display = 'flex';
+    // Remove any existing cards (keep empty state element)
+    Array.from(grid.children).forEach(c => {
+      if (c.id !== 'recent-empty') c.remove();
+    });
+    return;
+  }
+
+  // Hide empty state
+  if (empty) empty.style.display = 'none';
+
+  // Rebuild all cards — fastest for small counts (max 10)
+  Array.from(grid.children).forEach(c => {
+    if (c.id !== 'recent-empty') c.remove();
+  });
+
+  results.forEach((r, i) => {
+    const mc    = MODEL_COLORS[r.model] || MODEL_COLORS.gan;
+    const psnrC = (r.psnr && r.psnr >= 22) ? 'var(--green)' : 'var(--gold)';
+    const ssimC = (r.ssim && r.ssim >= 0.85) ? 'var(--green)' : 'var(--gold)';
+
+    const card = document.createElement('div');
+    card.className = 'rcard';
+    card.innerHTML = `
+      <!-- Image pair: original (left) | colorized (right) -->
+      <div class="rcard-imgs" style="position:relative;">
+        <img src="${r.original}"  alt="original"   title="Original (grayscale input)">
+        <img src="${r.colorized}" alt="colorized"   title="Colorized output">
+        <span class="rcard-img-label left">Original</span>
+        <span class="rcard-img-label right">Colorized</span>
+      </div>
+
+      <div class="rcard-body">
+        <!-- Filename + timestamp -->
+        <div class="rcard-top">
+          <div class="rcard-filename" title="${r.filename}">${r.filename}</div>
+          <div class="rcard-time">${r.date} &nbsp;${r.timestamp}</div>
+        </div>
+
+        <!-- Model badge + scene type -->
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <span class="rcard-model"
+                style="color:${mc.text}; background:${mc.bg}; border-color:${mc.border};">
+            ${mc.label}
+          </span>
+          <span style="font-size:0.75rem; color:var(--dim);">
+            ${r.image_type === 'portrait' ? '👤 Portrait' : '🌄 Landscape'}
+          </span>
+          <span style="font-size:0.72rem; color:var(--dim2); margin-left:auto;">
+            ${r.time}s
+          </span>
+        </div>
+
+        <!-- Checkpoint name -->
+        <div style="font-size:0.72rem; color:var(--dim2); font-family:'JetBrains Mono',monospace;
+                    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+             title="${r.checkpoint}">
+          ${r.checkpoint}
+        </div>
+
+        <!-- PSNR / SSIM metrics -->
+        <div class="rcard-metrics">
+          <div class="rcard-metric">
+            PSNR &nbsp;<span style="color:${psnrC}">${r.psnr != null ? r.psnr + ' dB' : '—'}</span>
+          </div>
+          <div class="rcard-metric">
+            SSIM &nbsp;<span style="color:${ssimC}">${r.ssim != null ? r.ssim : '—'}</span>
+          </div>
+        </div>
+
+        <!-- Download button -->
+        <div class="rcard-actions">
+          <button class="rcard-dl" onclick="downloadRecent(${i})">
+            ↓ Download
+          </button>
+        </div>
+      </div>`;
+
+    grid.appendChild(card);
+  });
+
+  // Store results for download
+  window._recentResults = results;
+}
+
+/**
+ * Trigger a download for a recent result by its index.
+ * @param {number} idx - Index in the results array (0 = newest)
+ */
+function downloadRecent(idx) {
+  const results = window._recentResults || [];
+  const r = results[idx];
+  if (!r || !r.colorized) return;
+  const a      = document.createElement('a');
+  a.href       = r.colorized;
+  a.download   = `colorized_${r.filename || idx + '.jpg'}`;
+  a.click();
+}
+
+// Auto-load when the Recent Results tab is opened
+const _origSwitchTab = switchTab;
+switchTab = function(name, btn) {
+  _origSwitchTab(name, btn);
+  if (name === 'recent') loadRecent();
+};
+
+</script>
+</body>
+</html>

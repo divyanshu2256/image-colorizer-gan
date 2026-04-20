@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Large model files — too big for GitHub
+checkpoints/
+models/*.caffemodel
+models/*.prototxt
+models/*.npy
+
+# Dataset — too large for GitHub
+dataset/
+
+# Evaluation outputs
+eval_report/
+comparison/
+colorized/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# VS Code
+.vscode/

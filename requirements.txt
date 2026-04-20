@@ -1,0 +1,21 @@
+# ── Core web framework ─────────────────────────────────────────────────────────
+flask>=3.0.0           # Flask web server — serves the UI and handles API requests
+flask-cors>=4.0.0      # Cross-Origin Resource Sharing — lets browser access the API
+
+# ── Deep learning ──────────────────────────────────────────────────────────────
+torch>=2.0.0           # PyTorch — runs GAN and ResNet colorization models
+torchvision>=0.15.0    # PyTorch image utilities (used for FID score in evaluate.py)
+
+# ── Computer vision ────────────────────────────────────────────────────────────
+opencv-python>=4.8.0   # OpenCV — Zhang 2016 model + face detection for smart enhance
+
+# ── Image processing ───────────────────────────────────────────────────────────
+numpy>=1.24.0          # Array operations on image data
+Pillow>=10.0.0         # PIL Image loading, resizing, enhancement
+scikit-image>=0.21.0   # LAB colour space conversion + PSNR/SSIM quality metrics
+
+# ── Visualisation ──────────────────────────────────────────────────────────────
+matplotlib>=3.7.0      # Training progress graph (plot_training.py, compare_models.py)
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+tqdm>=4.65.0           # Progress bars in evaluate.py terminal output

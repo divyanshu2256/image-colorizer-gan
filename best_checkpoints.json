@@ -1,0 +1,21 @@
+{
+  "gan_portrait": "checkpoints/generator_epoch178.pth",
+  "gan_landscape": "checkpoints/generator_epoch131.pth",
+  "resnet_portrait": "checkpoints/generator_resnet_epoch31.pth",
+  "resnet_landscape": "checkpoints/generator_resnet_epoch8.pth",
+  "_meta": {
+    "gan_portrait_ssim": 0.8983,
+    "gan_portrait_psnr": 22.2887,
+    "gan_landscape_ssim": 0.9219,
+    "gan_landscape_psnr": 23.414,
+    "resnet_portrait_ssim": 0.9021,
+    "resnet_portrait_psnr": 23.3957,
+    "resnet_landscape_ssim": 0.9196,
+    "resnet_landscape_psnr": 23.2011,
+    "total_checkpoints_tested": 303,
+    "resnet_epochs_tested": 100,
+    "gan_epochs_tested": 200,
+    "images_per_type": 10,
+    "eval_size": 512
+  }
+}
