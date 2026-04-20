@@ -72,20 +72,22 @@ A complete Flask web application with:
 ---
 
 ## Project Structure
-image-colorizer-gan/
-├── backend.py              # Flask web server — main entry point
-├── colorize_utils.py       # Shared utilities (colorization, metrics, enhancement)
-├── evaluate.py             # Evaluation pipeline — PSNR/SSIM on validation set
-├── checkpoint_picker.py    # Smart checkpoint selection (303 checkpoints evaluated)
-├── compare_models.py       # Single-image model comparison with matplotlib figure
-├── inference.py            # Command-line colorization tool
-├── plot_training.py        # Training progress graph generator
-├── update_metrics.py       # Update Training Metrics tab in web app
-├── index.html              # Complete web application frontend
-├── models/
-│   ├── generator.py        # U-Net GAN generator architecture
-│   └── generator_resnet.py # ResNet34-based generator architecture
-└── best_checkpoints.json   # Best checkpoint per model per scene type
+
+    image-colorizer-gan/
+    ├── backend.py               # Flask web server — main entry point
+    ├── colorize_utils.py        # Shared utilities (colorization, metrics, enhancement)
+    ├── evaluate.py              # Evaluation pipeline — PSNR/SSIM on validation set
+    ├── checkpoint_picker.py     # Smart checkpoint selection (303 checkpoints evaluated)
+    ├── compare_models.py        # Single-image model comparison
+    ├── inference.py             # Command-line colorization tool
+    ├── plot_training.py         # Training progress graph generator
+    ├── update_metrics.py        # Update Training Metrics tab in web app
+    ├── index.html               # Complete web application frontend
+    ├── best_checkpoints.json    # Best checkpoint per model per scene type
+    ├── requirements.txt         # Python dependencies
+    └── models/
+        ├── generator.py         # U-Net GAN generator architecture
+        └── generator_resnet.py  # ResNet34-based generator architecture
 
 ---
 
